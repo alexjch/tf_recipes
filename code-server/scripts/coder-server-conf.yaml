@@ -1,0 +1,27 @@
+#cloud-config
+
+groups:
+  - ubuntu: [root,sys]
+  - dpro42-group
+
+users:
+  - default
+  - name: ${username}
+    gecos: Coder Admin
+    shell: /bin/bash
+    primary_group: dpro42-group
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_pub_key}
+  - name: coder
+    system: true
+    shell: /bin/bash
+
+runcmd:
+  - mkdir -p /home/coder/.config/code-server
+  - sudo chown -R coder:coder /home/coder
+  - chmod 755 /home/coder/.config/code-server/
+  - sudo apt-get update
+  - sudo apt-get install -y python3
