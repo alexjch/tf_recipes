@@ -26,8 +26,9 @@ Configure the deployed instance with code-server:
 ./exec_setup.sh
 ```
 
-## Next Steps
+## Using HTTPS
+This is out of scope, because I don;t want to pay for the extra cost ;) [HTTPS documentation](https://coder.com/docs/code-server/guide).
 
-- [ ] Configure nginx reverse proxy
+## Next Steps
 - [ ] Set up default theme configuration
 - [ ] Use chroot/nspawn? to further limit user to it's home directory or safe env
