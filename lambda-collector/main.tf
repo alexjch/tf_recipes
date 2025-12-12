@@ -1,3 +1,11 @@
+# Lambda-based data collector with S3 storage
+# Dependencies (creation order):
+# 1. S3 bucket (data_bucket) - storage for collected data
+# 2. IAM role (lambda_role) - Lambda execution identity
+# 3. IAM policies (lambda_s3_policy, lambda_basic_execution) - permissions for S3 access and CloudWatch Logs
+# 4. Lambda function (data_collector) - depends on role and S3 bucket for environment variables
+# 5. Lambda function URL (data_collector_endpoint) - public endpoint to invoke the Lambda function
+
 # S3 Bucket for storing data
 resource "aws_s3_bucket" "data_bucket" {
     bucket = var.s3_bucket_name
@@ -75,6 +83,6 @@ resource "aws_lambda_function" "data_collector" {
 
 # Lambda function URL
 resource "aws_lambda_function_url" "data_collector_endpoint" {
-  function_name      = var.lambda_function_name
+  function_name      = aws_lambda_function.data_collector.function_name
   authorization_type = "NONE"
 }
