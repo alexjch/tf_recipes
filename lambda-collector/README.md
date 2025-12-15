@@ -41,31 +41,19 @@ terraform apply
 
 
 ...
-
 Outputs:
 
-data_collector_endpoint = {
-  "authorization_type" = "NONE"
-  "cors" = tolist([])
-  "function_arn" = "arn:aws:lambda:us-west-2:713881820835:function:data-collector"
-  "function_name" = "data-collector"
-  "function_url" = "https://xiuiqeea2fxypgtvyr7mnozyuq0wxrwb.lambda-url.us-west-2.on.aws/"
-  "id" = "data-collector"
-  "invoke_mode" = "BUFFERED"
-  "qualifier" = ""
-  "region" = "us-west-2"
-  "timeouts" = null /* object */
-  "url_id" = "xiuiqeea2fxypgtvyr7mnozyuq0wxrwb"
-}
-
+api_gateway_url = "https://yzw9o76fxb.execute-api.us-west-2.amazonaws.com/prod"
+lambda_function_arn = "arn:aws:lambda:us-west-2:713881820835:function:data-collector"
+s3_bucket_name = "storage-3595aa82-8cfc-4c41-a2f3-53a4c51e5bd7"
 ```
 
-**Note:** ```data_collector_endpoint.function_url``` this endpoint is neccesary for next steps
+**Note:** ```api_gateway_url``` this endpoint is neccesary for next steps
 
 ## Test collector with ```curl``` and ```aws s3```
 
 ```bash
-curl -vv -XPOST "https://xiuiqeea2fxypgtvyr7mnozyuq0wxrwb.lambda-url.us-west-2.on.aws/" -d '{"payload":"hello world!"}'
+curl -vv -XPOST $(tf output -raw api_gateway_url) -d '{"payload":"hello world!"}'
 
 ```
 
