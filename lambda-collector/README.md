@@ -70,4 +70,4 @@ curl -vv -XPOST "https://xiuiqeea2fxypgtvyr7mnozyuq0wxrwb.lambda-url.us-west-2.o
 ```
 
 ## TODO:
-- Security anybody from anywhere can send a POST to the endspoint.
+- Secure endpoint: API Gateway offers lots of great options. But fear of vendor lock in makes me opt for mutual TLS authentication. (authz is out of scope).
