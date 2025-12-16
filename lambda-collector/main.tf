@@ -1,17 +1,28 @@
-# Lambda-based data collector with S3 storage
-# Dependencies (creation order):
+# Lambda-based data collector with S3 storage and API Gateway
+#
+# Architecture:
+# - Lambda function receives data via API Gateway
+# - Data is stored in versioned S3 bucket
+# - CloudWatch Logs enabled for monitoring
+#
+# Resource creation order:
 # 1. S3 bucket (data_bucket) - storage for collected data
 # 2. IAM role (lambda_role) - Lambda execution identity
-# 3. IAM policies (lambda_s3_policy, lambda_basic_execution) - permissions for S3 access and CloudWatch Logs
-# 4. Lambda function (data_collector) - depends on role and S3 bucket for environment variables
-# 5. API Gateway REST API - public endpoint to invoke the Lambda function
+# 3. IAM policies - permissions for S3 access and CloudWatch Logs
+# 4. Lambda function (data_collector) - main application logic
+# 5. API Gateway - public HTTP endpoint
 
-# S3 Bucket for storing data
+# ============================================================================
+# S3 Storage
+# ============================================================================
+
+# Primary data storage bucket
 resource "aws_s3_bucket" "data_bucket" {
-    bucket = var.s3_bucket_name
-    force_destroy = true
+    bucket        = var.s3_bucket_name
+    force_destroy = true # WARNING: Deletes all objects when bucket is destroyed
 }
 
+# Enforce private bucket access
 # resource "aws_s3_bucket_public_access_block" "data_bucket" {
 #     bucket = aws_s3_bucket.data_bucket.id
 
@@ -21,6 +32,7 @@ resource "aws_s3_bucket" "data_bucket" {
 #     restrict_public_buckets = true
 # }
 
+# Enable versioning for data recovery and audit trail
 resource "aws_s3_bucket_versioning" "data_bucket_versioning" {
     bucket = aws_s3_bucket.data_bucket.id
     versioning_configuration {
@@ -28,7 +40,11 @@ resource "aws_s3_bucket_versioning" "data_bucket_versioning" {
     }
 }
 
-# IAM Role for Lambda
+# ============================================================================
+# IAM Role and Permissions
+# ============================================================================
+
+# Lambda execution role
 resource "aws_iam_role" "lambda_role" {
     name = "${var.lambda_function_name}-role"
 
@@ -46,7 +62,7 @@ resource "aws_iam_role" "lambda_role" {
     })
 }
 
-# IAM Policy for Lambda to write to S3
+# Grant Lambda permission to read and write objects in the data bucket
 resource "aws_iam_role_policy" "lambda_s3_policy" {
     name = "${var.lambda_function_name}-s3-policy"
     role = aws_iam_role.lambda_role.id
@@ -66,22 +82,26 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
     })
 }
 
-# Attach basic Lambda execution policy
-#   AWSLambdaBasicExecutionRole, provides write permissions to CloudWatch Logs, a basic
-#   condition for execution of the function
+# Attach AWS managed policy for CloudWatch Logs access
+# Provides permissions to create log groups/streams and write log events
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
     role       = aws_iam_role.lambda_role.name
     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Lambda function
+# ============================================================================
+# Lambda Function
+# ============================================================================
+
+# Data collector function
 resource "aws_lambda_function" "data_collector" {
     filename      = "${path.module}/function/lambda_handler.zip"
     function_name = var.lambda_function_name
     role          = aws_iam_role.lambda_role.arn
-    handler       = "lambda.handler"
+    handler       = "lambda.handler" # File: lambda.py, Function: handler
     runtime       = "python3.11"
 
+    # Trigger redeployment when function code changes
     source_code_hash = filebase64sha256("${path.module}/function/lambda_handler.zip")
 
     environment {
@@ -91,40 +111,44 @@ resource "aws_lambda_function" "data_collector" {
     }
 }
 
-# API Gateway REST API
+# ============================================================================
+# API Gateway Configuration
+# ============================================================================
+
+# REST API definition
 resource "aws_api_gateway_rest_api" "data_collector_api" {
     name        = "${var.lambda_function_name}-api"
     description = "API Gateway for data collector Lambda function"
 }
 
-# API Gateway Method for root resource
-# INFO: https://aws.amazon.com/blogs/developer/handling-arbitrary-http-requests-in-amazon-api-gateway/#:~:text=Handling%20all%20paths,existing%20/%7Bproxy+%7D%20resource.
+# Handle requests to root path (/)
+# Reference: https://aws.amazon.com/blogs/developer/handling-arbitrary-http-requests-in-amazon-api-gateway/
 resource "aws_api_gateway_method" "root" {
     rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
     resource_id   = aws_api_gateway_rest_api.data_collector_api.root_resource_id
-    http_method   = "ANY"
+    http_method   = "ANY" # Accept all HTTP methods (GET, POST, PUT, etc.)
     authorization = "NONE"
 }
 
-# Lambda Integration for root
+# Integrate root path with Lambda
 resource "aws_api_gateway_integration" "lambda_root" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
     resource_id = aws_api_gateway_rest_api.data_collector_api.root_resource_id
     http_method = aws_api_gateway_method.root.http_method
 
-    integration_http_method = "POST"
-    type                    = "AWS_PROXY"
+    integration_http_method = "POST" # API Gateway always invokes Lambda via POST
+    type                    = "AWS_PROXY" # Pass request directly to Lambda
     uri                     = aws_lambda_function.data_collector.invoke_arn
 }
 
-# API Gateway Resource (proxy)
+# Proxy resource to catch all paths (e.g., /users, /data/items)
 resource "aws_api_gateway_resource" "proxy" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
     parent_id   = aws_api_gateway_rest_api.data_collector_api.root_resource_id
-    path_part   = "{proxy+}"
+    path_part   = "{proxy+}" # Greedy path variable
 }
 
-# API Gateway Method for proxy
+# Handle requests to any sub-path
 resource "aws_api_gateway_method" "proxy" {
     rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
     resource_id   = aws_api_gateway_resource.proxy.id
@@ -132,7 +156,7 @@ resource "aws_api_gateway_method" "proxy" {
     authorization = "NONE"
 }
 
-# Lambda Integration for proxy
+# Integrate proxy paths with Lambda
 resource "aws_api_gateway_integration" "lambda_proxy" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
     resource_id = aws_api_gateway_resource.proxy.id
@@ -143,7 +167,7 @@ resource "aws_api_gateway_integration" "lambda_proxy" {
     uri                     = aws_lambda_function.data_collector.invoke_arn
 }
 
-# Lambda permission for API Gateway
+# Grant API Gateway permission to invoke Lambda function
 resource "aws_lambda_permission" "api_gateway" {
     statement_id  = "AllowAPIGatewayInvoke"
     action        = "lambda:InvokeFunction"
@@ -152,7 +176,11 @@ resource "aws_lambda_permission" "api_gateway" {
     source_arn    = "${aws_api_gateway_rest_api.data_collector_api.execution_arn}/*/*"
 }
 
+# ============================================================================
 # API Gateway Deployment
+# ============================================================================
+
+# Create deployment snapshot of API configuration
 resource "aws_api_gateway_deployment" "data_collector_prod_api" {
     depends_on = [
         aws_api_gateway_integration.lambda_root,
@@ -162,11 +190,11 @@ resource "aws_api_gateway_deployment" "data_collector_prod_api" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
 
     lifecycle {
-        create_before_destroy = true
+        create_before_destroy = true # Prevent downtime during updates
     }
 }
 
-# API Gateway Stage
+# Production stage (accessible via URL)
 resource "aws_api_gateway_stage" "prod" {
     deployment_id = aws_api_gateway_deployment.data_collector_prod_api.id
     rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
