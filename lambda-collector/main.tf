@@ -4,22 +4,12 @@
 # 2. IAM role (lambda_role) - Lambda execution identity
 # 3. IAM policies (lambda_s3_policy, lambda_basic_execution) - permissions for S3 access and CloudWatch Logs
 # 4. Lambda function (data_collector) - depends on role and S3 bucket for environment variables
-# 5. API Gateway REST API - public endpoint to invoke the Lambda function
+# 5. Lambda function URL (data_collector_endpoint) - public endpoint to invoke the Lambda function
 
 # S3 Bucket for storing data
 resource "aws_s3_bucket" "data_bucket" {
     bucket = var.s3_bucket_name
-    force_destroy = true
 }
-
-# resource "aws_s3_bucket_public_access_block" "data_bucket" {
-#     bucket = aws_s3_bucket.data_bucket.id
-
-#     block_public_acls       = true
-#     block_public_policy     = true
-#     ignore_public_acls      = true
-#     restrict_public_buckets = true
-# }
 
 resource "aws_s3_bucket_versioning" "data_bucket_versioning" {
     bucket = aws_s3_bucket.data_bucket.id
@@ -97,26 +87,6 @@ resource "aws_api_gateway_rest_api" "data_collector_api" {
     description = "API Gateway for data collector Lambda function"
 }
 
-# API Gateway Method for root resource
-# INFO: https://aws.amazon.com/blogs/developer/handling-arbitrary-http-requests-in-amazon-api-gateway/#:~:text=Handling%20all%20paths,existing%20/%7Bproxy+%7D%20resource.
-resource "aws_api_gateway_method" "root" {
-    rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
-    resource_id   = aws_api_gateway_rest_api.data_collector_api.root_resource_id
-    http_method   = "ANY"
-    authorization = "NONE"
-}
-
-# Lambda Integration for root
-resource "aws_api_gateway_integration" "lambda_root" {
-    rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
-    resource_id = aws_api_gateway_rest_api.data_collector_api.root_resource_id
-    http_method = aws_api_gateway_method.root.http_method
-
-    integration_http_method = "POST"
-    type                    = "AWS_PROXY"
-    uri                     = aws_lambda_function.data_collector.invoke_arn
-}
-
 # API Gateway Resource (proxy)
 resource "aws_api_gateway_resource" "proxy" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
@@ -124,7 +94,7 @@ resource "aws_api_gateway_resource" "proxy" {
     path_part   = "{proxy+}"
 }
 
-# API Gateway Method for proxy
+# API Gateway Method
 resource "aws_api_gateway_method" "proxy" {
     rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
     resource_id   = aws_api_gateway_resource.proxy.id
@@ -132,8 +102,8 @@ resource "aws_api_gateway_method" "proxy" {
     authorization = "NONE"
 }
 
-# Lambda Integration for proxy
-resource "aws_api_gateway_integration" "lambda_proxy" {
+# Lambda Integration
+resource "aws_api_gateway_integration" "lambda" {
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
     resource_id = aws_api_gateway_resource.proxy.id
     http_method = aws_api_gateway_method.proxy.http_method
@@ -155,8 +125,7 @@ resource "aws_lambda_permission" "api_gateway" {
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "data_collector_prod_api" {
     depends_on = [
-        aws_api_gateway_integration.lambda_root,
-        aws_api_gateway_integration.lambda_proxy
+        aws_api_gateway_integration.lambda
     ]
 
     rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
