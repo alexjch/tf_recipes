@@ -8,7 +8,8 @@
 
 # S3 Bucket for storing data
 resource "aws_s3_bucket" "data_bucket" {
-    bucket = var.s3_bucket_name
+    bucket        = var.s3_bucket_name
+    force_destroy = true
 }
 
 # Enforce private bucket access
@@ -76,6 +77,8 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 }
 
 # Lambda function
+# Note: Ensure the deployment package exists at ${path.module}/function/lambda_handler.zip
+# before running terraform apply. The Lambda function depends on this zip file.
 resource "aws_lambda_function" "data_collector" {
     filename      = "${path.module}/function/lambda_handler.zip"
     function_name = var.lambda_function_name
