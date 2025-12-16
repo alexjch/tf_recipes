@@ -11,6 +11,17 @@ resource "aws_s3_bucket" "data_bucket" {
     bucket = var.s3_bucket_name
 }
 
+# Enforce private bucket access
+resource "aws_s3_bucket_public_access_block" "data_bucket" {
+    bucket = aws_s3_bucket.data_bucket.id
+
+    block_public_acls       = true
+    block_public_policy     = true
+    ignore_public_acls      = true
+    restrict_public_buckets = true
+}
+
+# Enable versioning for data recovery and audit trail
 resource "aws_s3_bucket_versioning" "data_bucket_versioning" {
     bucket = aws_s3_bucket.data_bucket.id
     versioning_configuration {
