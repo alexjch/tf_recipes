@@ -84,7 +84,7 @@ resource "aws_lambda_function" "data_collector" {
     function_name = var.lambda_function_name
     role          = aws_iam_role.lambda_role.arn
     handler       = "lambda.handler"
-    runtime       = "python3.11"
+    runtime       = "python3.14"
 
     source_code_hash = filebase64sha256("${path.module}/function/lambda_handler.zip")
 
