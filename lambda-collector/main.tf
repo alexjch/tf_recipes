@@ -81,63 +81,8 @@ resource "aws_lambda_function" "data_collector" {
     }
 }
 
-# API Gateway REST API
-resource "aws_api_gateway_rest_api" "data_collector_api" {
-    name        = "${var.lambda_function_name}-api"
-    description = "API Gateway for data collector Lambda function"
-}
-
-# API Gateway Resource (proxy)
-resource "aws_api_gateway_resource" "proxy" {
-    rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
-    parent_id   = aws_api_gateway_rest_api.data_collector_api.root_resource_id
-    path_part   = "{proxy+}"
-}
-
-# API Gateway Method
-resource "aws_api_gateway_method" "proxy" {
-    rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
-    resource_id   = aws_api_gateway_resource.proxy.id
-    http_method   = "ANY"
-    authorization = "NONE"
-}
-
-# Lambda Integration
-resource "aws_api_gateway_integration" "lambda" {
-    rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
-    resource_id = aws_api_gateway_resource.proxy.id
-    http_method = aws_api_gateway_method.proxy.http_method
-
-    integration_http_method = "POST"
-    type                    = "AWS_PROXY"
-    uri                     = aws_lambda_function.data_collector.invoke_arn
-}
-
-# Lambda permission for API Gateway
-resource "aws_lambda_permission" "api_gateway" {
-    statement_id  = "AllowAPIGatewayInvoke"
-    action        = "lambda:InvokeFunction"
-    function_name = aws_lambda_function.data_collector.function_name
-    principal     = "apigateway.amazonaws.com"
-    source_arn    = "${aws_api_gateway_rest_api.data_collector_api.execution_arn}/*/*"
-}
-
-# API Gateway Deployment
-resource "aws_api_gateway_deployment" "data_collector_prod_api" {
-    depends_on = [
-        aws_api_gateway_integration.lambda
-    ]
-
-    rest_api_id = aws_api_gateway_rest_api.data_collector_api.id
-
-    lifecycle {
-        create_before_destroy = true
-    }
-}
-
-# API Gateway Stage
-resource "aws_api_gateway_stage" "prod" {
-    deployment_id = aws_api_gateway_deployment.data_collector_prod_api.id
-    rest_api_id   = aws_api_gateway_rest_api.data_collector_api.id
-    stage_name    = "prod"
+# Lambda function URL
+resource "aws_lambda_function_url" "data_collector_endpoint" {
+  function_name      = aws_lambda_function.data_collector.function_name
+  authorization_type = "NONE"
 }
