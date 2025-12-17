@@ -55,7 +55,7 @@ s3_bucket_name = "storage-3595aa82-8cfc-4c41-a2f3-53a4c51e5bd7"
 
 ```bash
 # Send an object. Make a copy of the filename
-curl -X POST $(terraform output -raw data_collector_endpoint) -d '{"payload": "Hello World!!"}'
+curl -X POST $(terraform output -raw data_collector_endpoint) -d '{"payload": "Hello World!!"}' -H "Authorization: Bearer xxxxxxxxxxxxx"
 {"message": "Data saved successfully", "filename": "20251216/1765915795-18341ebf-a294-407f-a8cd-506af4ace008"}
 
 # Check that is saved in s3, Using the filename printed in the HTTP response
@@ -64,4 +64,3 @@ aws s3 cp s3://$(terraform output -raw s3_bucket_name)/20251216/1765915795-18341
 ```
 
 ## TODO:
-- Secure endpoint.

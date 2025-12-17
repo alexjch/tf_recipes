@@ -9,3 +9,7 @@ output "s3_bucket_name" {
 output "data_collector_endpoint" {
     value = aws_lambda_function_url.data_collector_endpoint.function_url
 }
+
+output "generated_token" {
+    value = random_string.secret.result
+}
