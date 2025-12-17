@@ -10,12 +10,13 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+aws_region = os.environ.get("REGION_NAME", "us-west-2")
 s3_client = boto3.client("s3")
 
 def _get_secret(secret_name):
     # Create a Secrets Manager client
     session = boto3.session.Session()
-    client = session.client(service_name="secretsmanager", region_name="us-west-2")
+    client = session.client(service_name="secretsmanager", region_name=aws_region)
 
     try:
         # Retrieve the secret
@@ -30,14 +31,17 @@ def _get_secret(secret_name):
 def _parse_json_body(event):
     body = event.get("body", "")
     if not body:
-        return None
+        return None, "body not found in event"
 
     # If body is base64 encoded, decode first
     if event.get("isBase64Encoded"):
         body = base64.b64decode(body).decode("utf-8")
 
-    return json.loads(body)
-
+    try:
+        body_doc = json.loads(body)
+        return body_doc, None
+    except json.JSONDecodeError as e:
+        return None, str(e)
 
 def _save_message(bucket_name, key, body):
     try:
@@ -49,8 +53,8 @@ def _save_message(bucket_name, key, body):
             ContentType="application/json"
         )
     except botocore.exceptions.ClientError as e:
-            logger.exception(f"S3 client error while saving message {str(e)}")
-            return str(e)
+        logger.exception(f"S3 client error while saving message {str(e)}")
+        return str(e)
     except Exception as e:
         logger.exception(f"Unexpected error while saving message {str(e)}")
         return str(e)
@@ -84,7 +88,7 @@ def handler(event, context):
             "statusCode": 400,
             "body": json.dumps({
                 "message": "SECRET_NAME Configuration error",
-                "error": "Secret manager is missconfigured"
+                "error": "Secret manager is misconfigured"
             })
         }
 
@@ -102,7 +106,7 @@ def handler(event, context):
 
     # Validate the token
     if token != secret:
-        logger.error(f"Invalid token: {token}")
+        logger.error(f"Invalid token")
         return {
             "statusCode": 401,
             "body": json.dumps({
@@ -119,7 +123,7 @@ def handler(event, context):
             "statusCode": 400,
             "body": json.dumps({
                 "message": "S3_BUCKET Configuration error",
-                "error": "Backend storage is missconfigured"
+                "error": "Backend storage is misconfigured"
             })
         }
 
@@ -127,13 +131,14 @@ def handler(event, context):
     timestamp = int(time.time())
     date_dir = time.strftime("%Y%m%d", time.gmtime(timestamp))
     key = f"{date_dir}/{timestamp}-{uuid.uuid4()}"
+    body, parse_error_str = _parse_json_body(event)
 
-    if (body := _parse_json_body(event)) is None:
+    if body is None:
         return {
             "statusCode": 400,
             "body": json.dumps({
                 "message": "Failed to parse request body",
-                "error": "Client request does not contain `body` key"
+                "error": parse_error_str
             })
         }
 
