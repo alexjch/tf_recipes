@@ -9,6 +9,12 @@ resource "aws_instance" "dev_server" {
 
   user_data = local.cloud_init
 
+  ebs_block_device {
+    device_name = "/dev/sda1"  # Typically the root device
+    volume_size = 20            # Size in GB
+    volume_type = "gp2"        # General Purpose SSD
+  }
+
   tags = {
     Name = "dev_server"
   }
