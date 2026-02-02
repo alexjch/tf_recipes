@@ -1,0 +1,23 @@
+#cloud-config
+
+groups:
+  - dpro42-group
+
+users:
+  - default
+  - name: ${username}
+    gecos: Ollama Admin
+    shell: /bin/bash
+    primary_group: dpro42-group
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_pub_key}
+  - name: ollie
+    system: true
+    shell: /bin/bash
+
+runcmd:
+  - sudo dnf update -y
+  - sudo dnf install -y python3

@@ -1,0 +1,3 @@
+keys/aws_key*
+.terraform*
+terraform.tfstate*
