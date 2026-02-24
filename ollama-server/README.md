@@ -14,8 +14,7 @@ This Terraform recipe deploys a production-ready Ollama server on AWS EC2, optim
 **Key Components:**
 - **main.tf**: Defines EC2 instance, security groups, and key pair resources
 - **locals.tf**: Processes cloud-init template with user configuration
-- **scripts/server-conf.yaml**: Cloud-init configuration for initial system setup
-- **scripts/install_ollama.sh**: Custom Ollama installation script for Fedora (CPU-only, Intel Xeon optimized)
+- **scripts/server-conf.yaml**: Cloud-init configuration that installs and configures Ollama (CPU-only, Intel Xeon optimized)
 
 ## Prerequisites
 
@@ -180,10 +179,18 @@ sudo journalctl -u ollama -n 50
 
 ### Manual Ollama Installation
 
-If cloud-init fails, run the installation script manually:
+If cloud-init fails, install Ollama manually:
 
 ```bash
-sudo /usr/local/bin/install_ollama.sh
+sudo dnf install -y curl zstd
+sudo mkdir -p /usr/local/bin /usr/local/lib/ollama
+curl -fsSL https://ollama.com/download/ollama-linux-amd64.tar.zst | zstd -d | sudo tar -xf - -C /usr/local
+sudo ln -sf /usr/local/ollama /usr/local/bin/ollama
+
+# Create systemd service from /etc/systemd/system/ollama.service (should be present from cloud-init)
+sudo systemctl daemon-reload
+sudo systemctl enable ollama
+sudo systemctl start ollama
 ```
 
 ## Customization

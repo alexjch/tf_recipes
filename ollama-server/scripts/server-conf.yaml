@@ -14,10 +14,51 @@ users:
     lock_passwd: false
     ssh_authorized_keys:
       - ${ssh_pub_key}
-  - name: ollie
+  - name: ollama
     system: true
-    shell: /bin/bash
+    shell: /bin/false
+
+packages:
+  - curl
+  - zstd
+
+write_files:
+  - path: /etc/systemd/system/ollama.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Ollama Service (CPU-only, Intel Xeon optimized)
+      After=network-online.target
+
+      [Service]
+      ExecStart=/usr/local/bin/ollama serve
+      User=ollama
+      Group=ollama
+      Restart=always
+      RestartSec=3
+      Environment="HOME=/usr/share/ollama"
+      Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      Environment="OLLAMA_NUM_PARALLEL=2"
+      Environment="OLLAMA_MAX_LOADED_MODELS=2"
+      Environment="OLLAMA_NUM_THREADS=16"
+      Environment="OLLAMA_VULKAN=1"
+      Environment="OLLAMA_RUNNERS_DIR=/usr/share/ollama/.ollama/runners"
+
+      [Install]
+      WantedBy=default.target
 
 runcmd:
-  - sudo dnf update -y
-  - sudo dnf install -y python3
+  - dnf update -y
+  - dnf install -y python3
+  - mkdir -p {/usr/share/ollama,/usr/local/bin,/usr/local/lib/ollama}
+  - chown ollama:ollama /usr/share/ollama
+  - curl -fsSL https://ollama.com/download/ollama-linux-amd64.tar.zst -o /tmp/ollama.tar.zst
+  - zstd -d /tmp/ollama.tar.zst -o /tmp/ollama.tar
+  - tar -xf /tmp/ollama.tar -C /usr/local
+  - rm -rf /tmp/ollama.tar.zst /tmp/ollama.tar
+  - systemctl daemon-reload
+  - systemctl enable ollama --now
+  - systemctl is-active --wait ollama
+  - su ollama ollama pull nomic-embed-text
+  - su ollama ollama pull gemma:2b
