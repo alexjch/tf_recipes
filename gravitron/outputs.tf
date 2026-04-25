@@ -1,9 +1,9 @@
 output "public_dns" {
   description = "DNS name for EC2 instance"
-  value       = aws_instance.gravitron_server.public_dns
+  value       = module.server.public_dns
 }
 
 output "public_ip" {
   description = "Public IP address for EC2 instance"
-  value       = aws_instance.gravitron_server.public_ip
+  value       = module.server.public_ip
 }

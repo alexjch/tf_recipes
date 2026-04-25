@@ -5,10 +5,15 @@ variable "image_id" {
 
 variable "vm_type" {
   description = "AWS instance type"
-  default     = "t3.large"
+  default     = "m8i.large"
 }
 
 variable "key_name" {
   description = "Name for the imported AWS key pair"
   default     = "aws_key"
+}
+
+variable "username" {
+  description = "Username to create through cloud-init"
+  default     = "emulator"
 }

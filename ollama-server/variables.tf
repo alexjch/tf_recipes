@@ -3,6 +3,11 @@ variable "username" {
   default     = "admin"
 }
 
+variable "key_name" {
+  description = "Name for the imported AWS key pair"
+  default     = "aws_key"
+}
+
 variable "image_id" {
   description = "AMI Fedora 41 Cloud Image - x86_64" # us-west-2 aka Oregon
   default     = "ami-0ea0f0aecf4b692ea"
